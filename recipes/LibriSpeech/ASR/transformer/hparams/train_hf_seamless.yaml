@@ -57,9 +57,9 @@ sampling_rate: 16_000
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
 # This setup works with 2x A100 40GB (speech encoder fine-tuned).
-batch_size: 4
+batch_size: 2
 test_batch_size: 16
-grad_accumulation_factor: 4
+grad_accumulation_factor: 8
 
 # Decoding parameters
 # The encoder outputs one frame every 160 ms, hence max_decode_ratio > 1.
