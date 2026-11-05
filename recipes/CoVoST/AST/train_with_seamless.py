@@ -34,6 +34,14 @@ class AST(sb.core.Brain):
         wavs, wav_lens = batch.sig
         tokens_bos, _ = batch.tokens_bos
 
+        # Add waveform augmentation if specified.
+        if (
+            stage == sb.Stage.TRAIN
+            and hasattr(self.hparams, "wav_augment")
+            and self.optimizer_step > self.hparams.augment_warmup
+        ):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+
         # Forward encoder + decoder
         enc_out, enc_lens, logits = self.modules.seamless(
             wavs, tokens_bos, wav_lens
@@ -108,8 +116,8 @@ class AST(sb.core.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"BLEU": stage_stats["BLEU"], "epoch": epoch},
-                max_keys=["BLEU"],
+                meta={"ACC": stage_stats["ACC"], "epoch": epoch},
+                max_keys=["ACC"],
                 num_to_keep=self.hparams.num_checkpoints_to_keep,
             )
 
@@ -302,6 +310,6 @@ if __name__ == "__main__":
         )
         ast_brain.evaluate(
             dataset,
-            max_key="BLEU",
+            max_key="ACC",
             test_loader_kwargs=hparams["test_dataloader_opts"],
         )

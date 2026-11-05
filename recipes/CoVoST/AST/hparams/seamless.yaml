@@ -52,6 +52,7 @@ number_of_epochs: 3
 lr_seamless: 1e-5
 weight_decay: 0.01
 warmup_steps: 500
+augment_warmup: 750
 max_grad_norm: 5.0
 batch_size: 8
 test_batch_size: 8
@@ -129,6 +130,32 @@ test_search: !new:speechbrain.decoders.seq2seq.S2SSeamlessBeamSearcher
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
+
+############################## Augmentations ###################################
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0
+    drop_freq_high: 1
+    drop_freq_count_low: 1
+    drop_freq_count_high: 3
+    drop_freq_width: 0.05
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 3
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    min_augmentations: 1
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
 
 ############################## Logging and Pretrainer ##########################
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
