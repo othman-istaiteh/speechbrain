@@ -49,7 +49,7 @@ Following table contains whisper-finetuning results for 1 epoch using Whisper mo
 
 ## SeamlessM4T Finetuning Result:
 
-Following table contains SeamlessM4T-finetuning results for 1 epoch on train-clean-100, freezing the speech encoder and finetuning the decoder.
+Following table contains SeamlessM4T-finetuning results for 1 epoch on train-clean-100, finetuning the speech encoder and the decoder (the tied embeddings are frozen).
 SeamlessM4T (v1 and v2) checkpoints are supported. The parts of the model to fine-tune are chosen in the yaml file with `freeze_encoder`, `freeze_feature_projection`, `freeze_adapter`, `freeze_decoder` and `freeze_embeddings` (or `freeze_seamless` for the whole model), and `gradient_checkpointing: True` reduces the memory needed to fine-tune the encoder.
 The model is trained on lower case transcriptions and the WER is computed in the upper case LibriSpeech format.
 

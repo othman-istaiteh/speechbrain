@@ -50,10 +50,11 @@ weight_decay: 0.01
 warmup_steps: 500
 max_grad_norm: 5.0
 # The augmented copies are concatenated to the batch (concat_original), so
-# the model sees 2 x batch_size utterances per step.
-batch_size: 2
+# the model sees 2 x batch_size utterances per step. This setup works with
+# 2x A100 40GB (utterances up to 30 s, speech encoder fine-tuned).
+batch_size: 1
 test_batch_size: 4
-grad_accumulation_factor: 8
+grad_accumulation_factor: 16
 num_checkpoints_to_keep: 2
 loss_reduction: batchmean
 label_smoothing: 0.1
