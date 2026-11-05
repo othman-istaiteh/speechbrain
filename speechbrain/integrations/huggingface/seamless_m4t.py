@@ -51,6 +51,9 @@ class SeamlessM4T(HFTransformersInterface):
     ``decoder_start`` is prepended internally: recipes and searchers only deal
     with ``[target_lang, tokens...]`` (see ``bos`` and ``encode_target``).
 
+    LayerDrop is disabled (see ``override_config``), as layers skipped at
+    random leave parameters without gradients, which DDP does not allow.
+
     Arguments
     ---------
     source : str
@@ -163,6 +166,25 @@ class SeamlessM4T(HFTransformersInterface):
             self.model.gradient_checkpointing_enable(
                 gradient_checkpointing_kwargs={"use_reentrant": False}
             )
+
+    def override_config(self, config):
+        """Disables LayerDrop, so that every trainable parameter gets a
+        gradient at each step, as DDP requires.
+
+        Arguments
+        ---------
+        config : SeamlessM4TConfig or SeamlessM4Tv2Config
+            The original config.
+
+        Returns
+        -------
+        config : SeamlessM4TConfig or SeamlessM4Tv2Config
+            The config without LayerDrop.
+        """
+        config.speech_encoder_layerdrop = 0.0
+        config.encoder_layerdrop = 0.0
+        config.decoder_layerdrop = 0.0
+        return config
 
     def _from_pretrained(self, source, save_path, cache_dir, **kwargs):
         """Loads the speech-to-text sub-model matching the checkpoint version.
