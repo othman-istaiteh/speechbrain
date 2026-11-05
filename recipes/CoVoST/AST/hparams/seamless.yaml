@@ -3,6 +3,7 @@
 # Encoder: SeamlessM4T speech encoder (w2v-BERT 2.0 + length adapter)
 # Decoder: SeamlessM4T text decoder
 # losses: NLL
+# Augmentation: TimeDomainSpecAugment
 # Authors:  Othman Istaiteh 2026
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -52,11 +53,12 @@ number_of_epochs: 3
 lr_seamless: 1e-5
 weight_decay: 0.01
 warmup_steps: 500
-augment_warmup: 750
 max_grad_norm: 5.0
-batch_size: 8
+# The augmented copies are concatenated to the batch (concat_original), so
+# the model sees 2 x batch_size utterances per step.
+batch_size: 4
 test_batch_size: 8
-grad_accumulation_factor: 8
+grad_accumulation_factor: 16
 num_checkpoints_to_keep: 2
 loss_reduction: 'batchmean'
 label_smoothing: 0.1
@@ -133,27 +135,33 @@ test_search: !new:speechbrain.decoders.seq2seq.S2SSeamlessBeamSearcher
 
 ############################## Augmentations ###################################
 
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
 # Frequency drop: randomly drops a number of frequency bands to zero.
 drop_freq: !new:speechbrain.augment.time_domain.DropFreq
-    drop_freq_low: 0
-    drop_freq_high: 1
-    drop_freq_count_low: 1
-    drop_freq_count_high: 3
-    drop_freq_width: 0.05
+    drop_freq_low: 0  # Min frequency band dropout probability
+    drop_freq_high: 1  # Max frequency band dropout probability
+    drop_freq_count_low: 1  # Min number of frequency bands to drop
+    drop_freq_count_high: 3  # Max number of frequency bands to drop
+    drop_freq_width: 0.05  # Width of frequency bands to drop
 
 # Time drop: randomly drops a number of temporal chunks.
 drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
     drop_length_low: 1000
     drop_length_high: 2000
     drop_count_low: 1
-    drop_count_high: 3
+    drop_count_high: 5
 
 # Augmenter: Combines previously defined augmentations to perform data augmentation
 wav_augment: !new:speechbrain.augment.augmenter.Augmenter
-    min_augmentations: 1
+    concat_original: True
+    min_augmentations: 3
     max_augmentations: 3
     augment_prob: 1.0
     augmentations: [
+        !ref <speed_perturb>,
         !ref <drop_freq>,
         !ref <drop_chunk>]
 

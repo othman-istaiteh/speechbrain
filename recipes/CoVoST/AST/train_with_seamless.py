@@ -35,12 +35,9 @@ class AST(sb.core.Brain):
         tokens_bos, _ = batch.tokens_bos
 
         # Add waveform augmentation if specified.
-        if (
-            stage == sb.Stage.TRAIN
-            and hasattr(self.hparams, "wav_augment")
-            and self.optimizer_step > self.hparams.augment_warmup
-        ):
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            tokens_bos = self.hparams.wav_augment.replicate_labels(tokens_bos)
 
         # Forward encoder + decoder
         enc_out, enc_lens, logits = self.modules.seamless(
@@ -63,6 +60,13 @@ class AST(sb.core.Brain):
         (p_seq, hyps) = predictions
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
+
+        # Label Augmentation
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_eos_lens
+            )
 
         loss = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
 
