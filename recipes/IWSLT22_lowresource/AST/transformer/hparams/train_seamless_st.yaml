@@ -43,7 +43,7 @@ freeze_feature_projection: False
 freeze_adapter: False
 freeze_decoder: False
 freeze_embeddings: True # embeddings are tied with the lm_head (256k tokens)
-gradient_checkpointing: False
+gradient_checkpointing: True # needed for 30 s utterances on 40GB GPUs
 number_of_epochs: 20
 lr_seamless: 5e-5
 weight_decay: 0.01
@@ -52,9 +52,9 @@ max_grad_norm: 5.0
 # The augmented copies are concatenated to the batch (concat_original), so
 # the model sees 2 x batch_size utterances per step. This setup works with
 # 2x A100 40GB (utterances up to 30 s, speech encoder fine-tuned).
-batch_size: 1
+batch_size: 2
 test_batch_size: 4
-grad_accumulation_factor: 16
+grad_accumulation_factor: 8
 num_checkpoints_to_keep: 2
 loss_reduction: batchmean
 label_smoothing: 0.1
