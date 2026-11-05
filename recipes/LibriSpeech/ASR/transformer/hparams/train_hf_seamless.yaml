@@ -43,7 +43,7 @@ freeze_feature_projection: False
 freeze_adapter: False
 freeze_decoder: False
 freeze_embeddings: True # embeddings are tied with the lm_head (256k tokens)
-gradient_checkpointing: False
+gradient_checkpointing: True # leaves memory margin on 40GB GPUs
 number_of_epochs: 1
 weight_decay: 0.01
 lr_seamless: 1e-5
@@ -56,10 +56,10 @@ sampling_rate: 16_000
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
-# This setup works with 2x A100 40GB (speech encoder fine-tuned).
-batch_size: 2
+# This setup works with 2x A100 40GB or 2x V100 32GB (speech encoder fine-tuned).
+batch_size: 4
 test_batch_size: 16
-grad_accumulation_factor: 8
+grad_accumulation_factor: 4
 
 # Decoding parameters
 # The encoder outputs one frame every 160 ms, hence max_decode_ratio > 1.
