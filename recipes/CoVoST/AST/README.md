@@ -5,6 +5,7 @@ This folder contains script necessary to run automatic speech translation with t
 Two heuristics are available:
 1. Training from scratch with a conformer encoder-decoder model and multitask speech recognition plus speech translation training.
 2. SpeechLLM fine-tuning based on SSL speech encoders and LLaMA large language models (with and without adapters).
+3. Fine-tuning of SeamlessM4T (speech encoder and text decoder), e.g. `python train_with_seamless.py hparams/seamless.yaml`.
 
 # How to run
 ```shell
@@ -17,11 +18,16 @@ It is important to note that CommonVoice initially offers mp3 audio files. It is
 # Languages
 While CoVoST offers multiple languages, this recipe only was tested on English to German translation. However, there is nothing special to do to select another language pair aside from adding a proper text normalisation on the covost_prepary.py file.
 
+# SeamlessM4T
+`hparams/seamless.yaml` fine-tunes SeamlessM4T for French to English translation (CoVoST 2 `fr_en`, 264 hours of training speech). Set `src_language` and `tgt_language` for CoVoST and `target_lang` to the SeamlessM4T code of the target language (e.g. `eng`, `deu`). French normalisation is available in `covost_prepare.py`; other source languages may need their own character set there.
+The parts of the model to fine-tune are chosen in the yaml file with `freeze_encoder`, `freeze_feature_projection`, `freeze_adapter`, `freeze_decoder` and `freeze_embeddings` (or `freeze_seamless` for the whole model).
+
 # Results
 | Language | hyperparams file | Encoder | LLM | Test BLEU | Hugging Face link | Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:|
 | English - German | conformer.yaml | conformer | None | 13.9 | None | None | 2x A40 |
 | English - German | w2v2_llama3.yaml| wavlm-large | LLaMA 3.1 7B | 27.2 | None | None | 2x A100 |
+| French - English | seamless.yaml | SeamlessM4T v2-large | None | - | None | None | - |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

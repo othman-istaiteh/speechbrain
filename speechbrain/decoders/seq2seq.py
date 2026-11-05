@@ -2245,3 +2245,122 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
     def set_n_out(self):
         """set the number of output tokens."""
         return self.vocab_size
+
+
+class S2SSeamlessGreedySearcher(S2SGreedySearcher):
+    """This class implements the greedy decoding for the SeamlessM4T
+    speech-to-text models (see speechbrain.integrations.huggingface.seamless_m4t).
+
+    The decoding starts from the target language token of the model, so
+    setting ``model.set_target_lang()`` switches between transcription and
+    translation directions.
+
+    Arguments
+    ---------
+    model : speechbrain.integrations.huggingface.seamless_m4t.SeamlessM4T
+        The SeamlessM4T model.
+    temperature : float (default: 0.0)
+        Sampling temperature. 0.0 means argmax decoding.
+    **kwargs
+        see S2SBaseSearcher, arguments are directly passed.
+    """
+
+    def __init__(self, model, temperature=0.0, **kwargs):
+        super().__init__(bos_index=model.bos, eos_index=model.eos, **kwargs)
+        self.model = model
+        self.temperature = temperature
+
+    def forward(self, enc_states, wav_len, attention_mask=None):
+        """Greedy decoding from the current target language of the model.
+
+        Arguments
+        ---------
+        enc_states : torch.Tensor
+            The speech encoder outputs.
+        wav_len : torch.Tensor
+            The relative lengths of the encoder outputs.
+        attention_mask : torch.Tensor
+            Unused, kept for compatibility with S2SGreedySearcher.
+
+        Returns
+        -------
+        See S2SGreedySearcher.forward.
+        """
+        self.bos_index = self.model.bos
+        return super().forward(enc_states, wav_len, attention_mask)
+
+    def reset_mem(self, batch_size, device):
+        """The memory holds the decoded tokens, starting empty."""
+        return None
+
+    def forward_step(
+        self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None
+    ):
+        """Performs a step in the implemented greedy searcher."""
+        memory = _update_mem(inp_tokens, memory)
+        logits, attn = self.model.decode(memory, enc_states, enc_lens)
+        return logits[:, -1, :], memory, attn
+
+
+class S2SSeamlessBeamSearcher(S2SBeamSearcher):
+    """This class implements the beam search decoding for the SeamlessM4T
+    speech-to-text models (see speechbrain.integrations.huggingface.seamless_m4t).
+
+    The decoding starts from the target language token of the model, so
+    setting ``model.set_target_lang()`` switches between transcription and
+    translation directions.
+
+    Arguments
+    ---------
+    module : list with the following one:
+        model : speechbrain.integrations.huggingface.seamless_m4t.SeamlessM4T
+            The SeamlessM4T model.
+    temperature : float (default: 1.0)
+        Temperature factor applied to softmax.
+    **kwargs
+        see S2SBeamSearcher, arguments are directly passed.
+    """
+
+    def __init__(self, module, temperature=1.0, **kwargs):
+        super().__init__(
+            bos_index=module[0].bos, eos_index=module[0].eos, **kwargs
+        )
+        self.model = module[0]
+        self.temperature = temperature
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+    def forward(self, enc_states, wav_len):
+        """Beam search from the current target language of the model.
+
+        Arguments
+        ---------
+        enc_states : torch.Tensor
+            The speech encoder outputs.
+        wav_len : torch.Tensor
+            The relative lengths of the encoder outputs.
+
+        Returns
+        -------
+        See S2SBeamSearcher.forward.
+        """
+        self.bos_index = self.model.bos
+        return super().forward(enc_states, wav_len)
+
+    def reset_mem(self, batch_size, device):
+        """The memory holds the decoded tokens, starting empty."""
+        return None
+
+    def permute_mem(self, memory, index):
+        """Memory permutation during beamsearch."""
+        return torch.index_select(memory, dim=0, index=index)
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
+        memory = _update_mem(inp_tokens, memory)
+        logits, attn = self.model.decode(memory, enc_states, enc_lens)
+        log_probs = self.softmax(logits[:, -1, :] / self.temperature)
+        return log_probs, memory, attn
+
+    def set_n_out(self):
+        """Set the number of output tokens."""
+        return self.model.vocab_size
