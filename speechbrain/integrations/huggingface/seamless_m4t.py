@@ -466,7 +466,13 @@ class SeamlessM4T(HFTransformersInterface):
         enc_lens = (frame_lens.float() / enc_out.shape[1]).clamp(max=1.0)
         return enc_out, enc_lens.to(enc_out.device)
 
-    def forward_decoder(self, encoder_states, decoder_input_ids, enc_lens=None):
+    def forward_decoder(
+        self,
+        encoder_states,
+        decoder_input_ids,
+        enc_lens=None,
+        last_position_only=False,
+    ):
         """Runs the decoder on a sequence starting with the target language token.
 
         Arguments
@@ -478,11 +484,16 @@ class SeamlessM4T(HFTransformersInterface):
         enc_lens : torch.Tensor
             Absolute lengths of the encoder outputs, used to mask padding in
             the cross-attention. If None, nothing is masked.
+        last_position_only : bool
+            If True, only the last position goes through the output layer,
+            as with a 256k-token vocabulary the logits of every position
+            take a lot of memory during the search.
 
         Returns
         -------
         logits : torch.Tensor
-            The logits for each input position, shape (batch, tokens, vocab).
+            The logits for each input position, shape (batch, tokens, vocab),
+            or for the last one, shape (batch, 1, vocab).
         attn : torch.Tensor | None
             The last cross-attention weights if ``output_attentions``.
         """
@@ -508,14 +519,17 @@ class SeamlessM4T(HFTransformersInterface):
             output_attentions=self.output_attentions,
             use_cache=False,
         )
-        logits = self.model.lm_head(output.last_hidden_state).float()
-
         attn = None
         if self.output_attentions:
             attn = output.cross_attentions[-1][:, :, 1:]
 
+        if last_position_only:
+            hidden = output.last_hidden_state[:, -1:]
+            return self.model.lm_head(hidden).float(), attn
+
         # The first position predicts the language token, which is given.
-        return logits[:, 1:], attn
+        logits = self.model.lm_head(output.last_hidden_state[:, 1:]).float()
+        return logits, attn
 
     @torch.no_grad()
     def decode(self, tgt, encoder_out, enc_len=None):
@@ -533,8 +547,10 @@ class SeamlessM4T(HFTransformersInterface):
         Returns
         -------
         logits : torch.Tensor
-            The logits for each input position.
+            The logits for the last position, shape (batch, 1, vocab).
         attn : torch.Tensor | None
             The last cross-attention weights if ``output_attentions``.
         """
-        return self.forward_decoder(encoder_out, tgt, enc_len)
+        return self.forward_decoder(
+            encoder_out, tgt, enc_len, last_position_only=True
+        )
